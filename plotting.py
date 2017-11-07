@@ -16,10 +16,11 @@ def FlooadPlot (pic, flood_level) :
     
     
 def PlotTrack (track) :
-    plt.plot(*zip(*track),color='k',marker='D',linestyle='')
+    inp  = list(zip(*track))
+    plt.plot(inp[0],inp[1],color='k',marker='.',linestyle='-')
     
 def HighlightTrack (track) :
-    plt.plot(*zip(*track),color='m',linestyle='-',lw=2)
+    plt.plot(*list(zip(*track)),color='m',linestyle='-',lw=2)
     
 def LinePlot (pic, start=0) :
   

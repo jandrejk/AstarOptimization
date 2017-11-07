@@ -36,7 +36,10 @@ def GetNeighbours (point) :
     """
     x = point[0]
     y = point[1]
+    
+    #neighbours = [(x+1,y+1),(x+1,y),(x+1,y-1)]
     neighbours = [(x,y+1),(x+1,y+1),(x+1,y),(x+1,y-1),(x,y-1)]
+    #neighbours = [(x,y+1),(x+1,y+1),(x+1,y),(x+1,y-1),(x,y-1),(x-1,y-1),(x-1,y),(x-1,y+1)]
 
     forbidden = []
     for n in neighbours :
