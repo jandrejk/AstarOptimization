@@ -25,6 +25,9 @@ def PixelToTableAngle (pixel) :
     return pixel*2. - 90.
 
 
+def GantryAngleToPixel (angle) :
+    return int((angle+180) / 2)
+
 def SaveAnglesToTxt (gantry_angle, table_angle, directory) :
     file = open(directory,'w')
     
