@@ -24,12 +24,18 @@ def load3DColorwash (path, setOneToInfty = False) :
 def PixelToTableAngle (pixel) :
     return pixel*2. - 90.
 
+def PixelToGantryAngle (pixel) :
+    return pixel*2. - 180.
+
 
 def GantryAngleToPixel (angle) :
-    return int((angle+180) / 2)
+    return int((angle+180.) / 2.)
+
 
 def SaveAnglesToTxt (gantry_angle, table_angle, directory) :
     file = open(directory,'w')
+    
+    
     
     file.write(str(len(gantry_angle)) + '\n')
 
