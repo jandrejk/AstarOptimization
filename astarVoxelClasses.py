@@ -15,7 +15,7 @@ class PriorityQueue:
         return heapq.heappop(self.elements)[1]
     
 class GT_map :
-    def __init__(self, color_map,collision_map, CT_map, gradient=1,start=0,end=180,seeTheFuture=3) :
+    def __init__(self, color_map,collision_map, CT_map, gradient=1,start=0,end=180,seeTheFuture=1) :
         self.color = color_map
         self.collision = collision_map
         self.ct = CT_map
@@ -80,8 +80,9 @@ def reconstruct_path(came_from, start, goal):
         path.append(current)
         current = came_from[current]
     
-    #append start point being one to the left 
-    path.append((path[-1][0]-1,path[-1][1])) 
+    #append start point being one to the left
+    #do not append because go to the left at the beginning
+    #path.append((path[-1][0]-1,path[-1][1])) 
     
     path.reverse() 
-    return path
+    return path 
