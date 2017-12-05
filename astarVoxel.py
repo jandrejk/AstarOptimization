@@ -28,11 +28,12 @@ def a_star_search(graph, ga_Pixel_range):
             break
         
         for next_point in graph.GetNeighbours(current):
-            new_cost = cost_so_far[current] + graph.cost(current, next_point)
+            new_cost = cost_so_far[current] + graph.manhatten(current,next_point) * graph.cost(current, next_point) 
             if next_point not in cost_so_far or new_cost < cost_so_far[next_point]:
                 cost_so_far[next_point] = new_cost
                 
-                priority = new_cost + graph.heuristic(next_point)
+                priority = new_cost + graph.heuristic(next_point,cost_so_far[current]) #+ graph.manhatten(current,next_point)
+                print('new_cost: %.3f heuristic: %.3f manhatten: %.3f'%(new_cost,graph.heuristic(next_point,cost_so_far[current]),graph.manhatten(current,next_point)))
                 
                 frontier.put(next_point, priority)
                 came_from[next_point] = current
@@ -85,7 +86,7 @@ ga_stop = ut.GantryAngleToPixel(angle=upper_ga)
 collMap = ut.load3DColorwash(pathToColl,setOneToInfty=False)[3]
 cTrestrMap = ut.load3DColorwash(pathToCTrestr,setOneToInfty=False)[3]
 
-dim, ga, ta, oARmap = ut.load3DColorwash(pathToOARs)
+dim, ga, ta, oARmap = ut.load3DColorwash2(pathToOARs)
 
 GT = AstarCl.GT_map(oARmap,collMap,cTrestrMap,gradient=grad,seeTheFuture=future,
                     start=ga_start,end=ga_stop)

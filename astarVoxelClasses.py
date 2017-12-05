@@ -66,12 +66,22 @@ class GT_map :
     def cost (self, current_point, next_point) :
         return self.color[next_point[::-1]]
     
-    def heuristic(self,next_point) :
+    def heuristic(self,next_point,mult_value) :
         x = next_point[0]
         y = next_point[1]
         
-        return np.sum(self.color[y][x:x+self.future])
-
+        #return (np.sum(self.color[y][x:x+self.future]) / self.future + 1. + np.log(self.future)) * mult_value
+        return (np.sum(self.color[y][x:x+self.future]) )  # / self.future + 1. + np.log(self.future)) * mult_value
+    
+    def manhatten(self, current, next_point) :
+        return (abs(next_point[0] - current[0]) + abs(next_point[1]-current[1])) 
+    
+    def heuristic2(self,next_point,mult_value) :
+        x = next_point[0]
+        y = next_point[1]
+        window = self.future
+        #return (np.sum(self.color[y][x:x+self.future]) / self.future + 1. + np.log(self.future)) * mult_value
+        return (np.sum(self.color[y][x-window:x+window]) )  # / self.future + 1. + np.log(self.future)) * mult_value
     
 def reconstruct_path(came_from, start, goal):
     current = goal
