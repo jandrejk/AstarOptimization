@@ -7,7 +7,7 @@ import astarVoxelClasses as AstarCl
 from scipy.spatial import ConvexHull
 sys.path.insert(0,'/home/smcp/janik/dto/scripts/utilities')
 import util as ut
-
+import pickle
 
 def a_star_search(graph, ga_Pixel_range):
     
@@ -60,8 +60,18 @@ def GetParamsFromProperties (path) :
     debuging is missing
     """
 
+def dot(a,b) :
+    return np.linalg.multi_dot((a,b))
 
 
+def projection (vector, BEV) :
+    z_BEV = BEV[2]
+    z_p = vector[2]
+    
+    lam = z_p / (z_BEV - z_p)
+    
+    
+    return vector + lam * (vector - BEV)
 
 
 """
@@ -92,9 +102,11 @@ iso = np.array([0.,0.,0.])
 
 # get PTV vertices
 PTV_vertices = ut.GetPTV_vertices(directory=pathToPTVmesh)
-# BEV (beam's eye view) position matrix
-BEV = np.zeros(np.shape(PTV_vertices)) 
-BEV[:,2] += SAD
+
+
+# BEV (beam's eye view) position 
+BEV = np.array([0.,0.,SAD])
+
 
 length = len(ga)
 col_map = []
@@ -102,82 +114,108 @@ col_map = []
 # min leaf distance option is selected
 if mapSelection == 0 :
     #ONLY NEED TO DO HALF BECAUSE THEN PATTERN GETS REPEATED
-    colli_angle = np.deg2rad(np.arange(-179.,0.,2.)) # [-179,179] in steps of 2
+    colli_angle = np.deg2rad(np.arange(-179.,180.,2.)) # [-175,175] in steps of 2
 # area option is selected
 else :
-    colli_angle = np.deg2rad(np.arange(-179.,-90.,2.)) # [-179,179] in steps of 2
-    colli_matrix2 = np.array([np.sin(colli_angle),np.cos(colli_angle)])
+    colli_angle = np.deg2rad(np.arange(-179.,180.,2.))# [-179,179] in steps of 2
+    colli_matrix2 = np.array([np.sin(-colli_angle),np.cos(-colli_angle)])
 
-colli_matrix = np.array([np.cos(colli_angle),-np.sin(colli_angle)])
+colli_matrix = np.array([np.cos(-colli_angle),-np.sin(-colli_angle)])
     
+
+if mapSelection == 1 :
+    print('generate dicts')
+    jawX_dict = {}
+    jawY_dict = {}
+
 
 
 for i in range(length) :
     gantry = np.deg2rad(ga[i])
     table = np.deg2rad(ta[i])
     
-    # reduced rotation matrices because have 2d problem after projection
-    # have rotation around z-axis with neg table angle and roation
-    # around y-axis with negative gantry angle
-    Rz_red = np.array([[np.cos(-table), -np.sin(-table)],
-               [np.sin(-table),np.cos(-table)]])
+    Rz = np.array([[np.cos(table), -np.sin(table), 0.],
+               [np.sin(table),np.cos(table),0.],
+               [0.,0.,1.]])
 
-    Ry_red = np.array([[np.cos(-gantry), -np.sin(-gantry)],
-                         [np.sin(-gantry),np.cos(-gantry)]])
-
-    M1 = np.dot(Rz_red,PTV_vertices[:,[0,1]].T) 
-    y_trafo = M1[1,:]
+    Ry = np.array([[np.cos(gantry), 0 , -np.sin(gantry)],
+             [0.,1.,0.],
+             [np.sin(gantry),0.,np.cos(gantry)]])
     
-    M2 = np.dot(Ry_red,np.vstack((M1[0,:],PTV_vertices[:,2])) )
-    x_trafo = M2[0,:]
-    z_trafo = M2[1,:]
-    
+    R = Ry.dot(Rz)
     # these points are rotated to be seen from beam's eze view direction
-    PTV_vertices_trafo = np.vstack((x_trafo,y_trafo,z_trafo)).T
+    PTV_vertices_trafo = np.array([dot(Ry,dot(Rz,v)) for v in PTV_vertices])
+    PTV_vertices_trafo2 = np.array([R.dot(v) for v in PTV_vertices])
+    
+    for j in range(len(PTV_vertices_trafo)) :
+        value = PTV_vertices_trafo[j] - PTV_vertices_trafo2[j]
+        if abs(value).all() > 0.00000001 :
+            print(j,'different')
+    
+    
+    print(PTV_vertices_trafo.shape)
     
     # no perform conic projection from beam's eye view
-    z_points = PTV_vertices_trafo[:,2]
-    lambda_vec = np.divide(z_points,BEV[:,2]-z_points)
-    PTV_vertices_trafo_proj = PTV_vertices_trafo + np.multiply((PTV_vertices_trafo-BEV).T,lambda_vec).T
-    
-    # trick: use only the convex hull to speed up the algorithm because inner
-    # points will do not have to be tested for min and max
-    points = (PTV_vertices_trafo_proj[:,[0,1]])  
-    hull = ConvexHull(points)
-    Q = PTV_vertices_trafo_proj[np.hstack((hull.simplices[:,0],hull.simplices[:,1]))]
+    PTV_vertices_trafo_proj = np.array([projection(vector=v,BEV=BEV) for v in PTV_vertices_trafo])
+
+    Q = PTV_vertices_trafo_proj
     
     # make a scan over all possible collimator rotations
     A = np.dot(Q[:,[0,1]],colli_matrix)
-    x_min_dist = np.max(A,axis=0) - A.min(axis=0)
+    jawX_dict[i] = (A.min(axis=0),A.max(axis=0))
+    x_min_dist = A.max(axis=0) - A.min(axis=0)
+    
     
     if mapSelection == 0 :
         col_map.append(x_min_dist)
     # area option chosen
     else :
         B = np.dot(Q[:,[0,1]],colli_matrix2)
+        jawY_dict[i] = (B.min(axis=0),B.max(axis=0))
         y_min_dist = B.max(axis=0) - B.min(axis=0)
     
         col_map.append(np.multiply(x_min_dist,y_min_dist))
 
+"""
 if mapSelection == 0 :        
     GC_map = np.hstack((col_map,col_map)).T
 else :
     GC_map = np.hstack((col_map,col_map,col_map,col_map)).T
+"""
 
-GC_map /= GC_map.max()
+print(np.shape(col_map))
+GC_map = np.array(col_map).T
 
+print(np.shape(GC_map))
+
+m = GC_map.min()
+GC_map = (GC_map - m) / (GC_map.max()-m)
+
+print('time until map is ready: %.3f sec'%(time.time()-go))
+
+s = time.time()
 # save the map as track-gap.txt 
 ut.SaveMapToTxt(MAP=GC_map,directory=pathToGCcolormap)
+print('save map needs %.3f sec'%(time.time()-s))
 
 
 
-
+ss = time.time()
 #convert gantry angles to pixels
 #add (-1) to start search from the left and
 #first point is already in the correct path
-ga_start = ut.GantryAngleToPixel(angle=ga[0])-1
-ga_stop = ut.GantryAngleToPixel(angle=ga[-1])
+ga_start = -1#ut.GantryAngleToPixel(angle=ga[0])-1
+ga_stop = length -1 #ut.GantryAngleToPixel(angle=ga[-1])
 
+"""
+print('gantry angles')
+print(ga[0])
+print(ga[-1])
+print('----------')
+
+print(ga_start)
+print(ga_stop)
+"""
 
 GC = AstarCl.GC_map(color_map=GC_map,gradient=grad,seeTheFuture=future,
                     start=ga_start,end=ga_stop)
@@ -188,6 +226,7 @@ came_from, last_point = a_star_search(GC, ga_Pixel_range=[ga_start,ga_stop])
 
 #get path and save it
 path = AstarCl.reconstruct_path(came_from=came_from, start=(ga_start,0),goal=last_point)
+print('search time %.3f sec'%(time.time()-ss))
 
 
 
@@ -196,6 +235,16 @@ ca = ut.PixelToColliAngle(pixel=np.array([i[1] for i in path]))
 ut.SaveGTCToTxt(gantry_angle=ga, table_angle=ta, 
                 colli_angle=ca, directory=pathToOutputGTCFile)
 
+
+ut.SaveGTCJToTxt(gantry_angle=ga, table_angle=ta, 
+                colli_angle=ca, gc_path = path, jawX = jawX_dict, 
+                jawY=jawY_dict, directory='../tmp/gtcj-track.txt')
+
+
+with open('../tmp/jawX.pkl','wb') as f : pickle.dump(jawX_dict,f)
+with open('../tmp/jawY.pkl','wb') as f : pickle.dump(jawY_dict,f)
+
+print(path)
 print("GC Astar algorithm terminated")
 print("time elapsed [s] ", time.time()-go)
 print("============================")
